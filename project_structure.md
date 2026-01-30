@@ -1,0 +1,20 @@
+quant_momentum_project/
+├──  data/
+        ├── data_ingestion.py      
+        ├── feature_generation.py  
+        ├── label_generator.py     
+        ├── train_model.py          
+├── research-notes/          
+        ├── results.md             
+        ├── strategy_definition.md
+        ├── ml_role.md
+        ├── feature_list.md
+        ├── labels_definition.md
+        ├── evaluation_metrics.md
+        ├── backtest_assumptions.md
+        ├── model_choice.md
+        ├── bias_and_limits.md
+        ├── end_to_end_flow.md
+        ├── comparison.md
+        ├── interpretation.md
+├── results/      
