@@ -19,18 +19,27 @@ Constraint: Same prices, costs, and execution rules across all variants
 This ensures that any performance difference is attributable only to the ML filter.
 
 Repository Structure
+
 Quant-Momentum-Project/
+
 │
-├── code/                  
+
+├── code/    
+
 ├── results/
+
 ├── data/
+
 │
-├── project_structure.md     
+
+├── project_structure.md
+
 │
+
 └── README.md
 
 Strategy Design
-1. Baseline Momentum Signal
+## 1. Baseline Momentum Signal
 
 The base trading signal is a trend-following EMA crossover:
 
@@ -61,7 +70,9 @@ Entry: `t + 1`
 Exit: `t + 1 + horizon`
 
 Label = 1 if forward return > transaction cost
+
 Labels are only defined when the EMA signal is active
+
 This avoids training the model on irrelevant periods.
 
 ## 4. Machine Learning Model
@@ -73,8 +84,11 @@ Output: Probability of trade success
 Regularization:
 
 Dropout
+
 Early stopping
+
 Reduced model capacity
+
 Scaling: StandardScaler (fit on train only)
 
 The model does not predict returns, only trade viability.
@@ -84,9 +98,13 @@ The model does not predict returns, only trade viability.
 To ensure fairness and research integrity:
 
 Same price series
+
 Same execution timing
+
 Same transaction costs
+
 Same position sizing
+
 Same holding rules
 
 The only difference:
@@ -97,16 +115,27 @@ The only difference:
 ## Evaluation Metrics
 
 Classification Diagnostics
+
 Train vs test accuracy
+
 Probability distributions
+
 Calibration curve
+
 Confidence stability over time
+
 Trading Metrics
+
 Sharpe ratio
+
 Trade frequency
+
 Cumulative returns
+
 Drawdowns
+
 Acceptance rate vs threshold
+
 Performance is evaluated out-of-sample only.
 
 ### Visualization Philosophy 📊
@@ -116,49 +145,69 @@ The project uses both static and interactive plots, chosen intentionally:
 #### Matplotlib (Static, Research-Grade)
 
 Cumulative return comparison
+
 Drawdown curves
+
 Calibration curves
+
 Distribution histograms
 
 #### Plotly (Interactive, Exploratory)
 
 Threshold × Trade Frequency × Sharpe (3D)
+
 ML confidence vs forward returns
+
 PCA feature projections with confidence
+
 Threshold sensitivity surfaces
+
 Interactive plots are used only where dimensionality or non-linearity matters.
 
 ### Key Findings (Representative)
 
 ML probabilities are stable and well-calibrated
+
 Classification accuracy is modest (expected)
+
 Trade frequency decreases meaningfully with ML filtering
+
 Sharpe ratio improvements come primarily from risk reduction, not higher returns
+
 In some regimes, Sharpe parity with lower drawdown is the dominant gain
 
 This aligns with empirical trading literature:
 
 Filtering bad trades is often more valuable than finding new ones.
+
 Limitations & Research Extensions
-No regime-specific models (single global classifier)
-No short selling
+
 Fixed holding horizon
+
 No walk-forward retraining
+
 No transaction cost stress testing
 
-Natural next steps:
+### Natural next steps:
 
 Regime-conditioned filters
+
 Horizon-adaptive labeling
+
 Bayesian or ensemble filters
+
 Walk-forward optimization
+
 Multi-asset generalization
 
 ### Reproducibility
 
 Fixed random seeds
+
 Deterministic splits
+
 Explicit feature alignment
+
 No hidden state or data leakage
 
 All results can be reproduced by running:
