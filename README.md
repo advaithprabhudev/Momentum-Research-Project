@@ -21,15 +21,11 @@ This ensures that any performance difference is attributable only to the ML filt
 Repository Structure
 Quant-Momentum-Project/
 │
-├── data_ingestion.py        # Market data loading and preprocessing
-├── feature_generation.py   # Feature engineering (technical + statistical)
-├── label_generator.py      # Forward-return based labeling logic
+├── code/                  
+├── results/
+├── data/
 │
-├── train_model.py           # ML training, evaluation, and diagnostics
-├── ml_filter.py             # ML-based signal filtering logic
-├── backtest_ml_strategy.py # Fair backtest: raw vs ML-filtered strategy
-│
-├── figure_plotting.py       # Matplotlib & Plotly visualizations
+├── project_structure.md     
 │
 └── README.md
 
