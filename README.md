@@ -1,216 +1,325 @@
-# 📈 ML-Filtered Momentum Trading Strategy
+# 📘 Machine-Learning Filtered Momentum Strategy  
+### A Quantitative Research Study on Signal Selectivity
 
-A Quantitative Research Project on Signal Quality Enhancement
+---
 
-## Overview
+## 1. Research Objective
 
-This project investigates whether machine learning can improve the quality of a classical momentum trading strategy by filtering trades rather than predicting prices directly.
-Instead of replacing a well-understood technical signal (EMA crossover), the model learns when not to trade — an approach aligned with modern systematic trading research, where selectivity often matters more than prediction accuracy.
-The core research question:
+This project investigates a focused and realistic question in systematic trading:
 
-`Can a lightweight ML classifier improve risk-adjusted returns by filtering low-quality momentum signals, while preserving execution realism and fairness in backtesting?`
+> **Can machine learning improve a classical momentum strategy by filtering low-quality trades, without directly generating alpha?**
 
-## Key Ideas
+Rather than predicting prices, the model learns **when not to trade**.  
+This mirrors how machine learning is actually deployed in professional quantitative research.
 
-Baseline strategy: EMA(20/50) crossover
-ML role: Conditional trade filter (probability of trade success)
-Objective: Improve Sharpe ratio, drawdowns, and trade efficiency
-Constraint: Same prices, costs, and execution rules across all variants
-This ensures that any performance difference is attributable only to the ML filter.
+---
 
-Repository Structure
+## 2. Conceptual Framework
 
-Quant-Momentum-Project/
+### Core Principle
 
-│
+Let:
+- \( S_t \in \{0,1\} \): a deterministic momentum signal (EMA crossover)
+- \( Y_t \in \{0,1\} \): trade success label
+- \( X_t \): feature vector describing market conditions
+- \( f(X_t) = P(Y_t = 1 \mid X_t) \): ML-estimated trade quality
 
-├── code/    
+A trade is executed **only if**:
 
-├── results/
+\[
+S_t = 1 \quad \text{and} \quad f(X_t) > \tau
+\]
 
-├── data/
+where \( \tau \) is a confidence threshold.
 
-│
+**Machine learning does not create alpha.  
+It filters noise from an existing anomaly.**
 
-├── project_structure.md
+---
 
-│
+## 3. Data Description
 
-└── README.md
+### Market Data
+- OHLCV time-series
+- Daily frequency
+- Single asset (architecture supports extension)
 
-Strategy Design
-## 1. Baseline Momentum Signal
+### Data Integrity Rules
+- No forward-looking features
+- Rolling statistics are shifted
+- Labels are aligned strictly after feature computation
+- Time-ordered train/test split
 
-The base trading signal is a trend-following EMA crossover:
+---
 
-Long when EMA(20) > EMA(50)
-Flat otherwise
 
-This strategy is deliberately simple and interpretable.
+---
 
-## 2. Feature Engineering
+## 4. File-by-File Explanation
 
-All features are causal, shifted to avoid look-ahead bias:
+---
 
-Feature	Description
-Volatility (20d)	Rolling standard deviation of returns
-RSI (14)	Momentum exhaustion indicator
-ATR (14)	Market range / risk proxy
-Volume Z-Score	Relative volume anomaly (252d normalization)
+## 📂 `data_ingestion.py`
 
-These features are chosen to reflect regime, risk, and signal reliability, not price direction.
+### Purpose
+Load and standardize raw OHLCV market data.
 
-## 3. Label Construction
+### Logic
+- Reads price data
+- Enforces datetime index
+- Sorts chronologically
+- No transformations applied
 
-Labels answer a specific economic question:
+This file defines the **base probability space** for all subsequent analysis.
 
-If I enter this trade tomorrow, will it outperform transaction costs over the next N days?
+---
 
-Entry: `t + 1`
-Exit: `t + 1 + horizon`
+## 📂 `feature_generation.py`
 
-Label = 1 if forward return > transaction cost
+### Purpose
+Construct causal, interpretable features describing **trade environment quality**.
 
-Labels are only defined when the EMA signal is active
+### Features and Mathematics
 
-This avoids training the model on irrelevant periods.
+#### 1️⃣ Volatility (20-day)
+\[
+\sigma_t = \sqrt{\frac{1}{20} \sum_{i=1}^{20} (r_{t-i} - \bar{r})^2}
+\]
 
-## 4. Machine Learning Model
+Measures noise and regime instability.
 
-Architecture: Lightweight MLP (feed-forward neural network)
-Loss: `BCEWithLogitsLoss`
-Output: Probability of trade success
+---
 
-Regularization:
+#### 2️⃣ Relative Strength Index (RSI-14)
+\[
+RSI = 100 - \frac{100}{1 + RS}
+\]
 
-Dropout
+Captures momentum exhaustion rather than direction.
 
-Early stopping
+---
 
-Reduced model capacity
+#### 3️⃣ Average True Range (ATR-14)
+\[
+ATR_t = EMA_{14}(\max(H-L, |H-C_{prev}|, |L-C_{prev}|))
+\]
 
-Scaling: StandardScaler (fit on train only)
+Measures volatility expansion and stop-loss risk.
 
-The model does not predict returns, only trade viability.
+---
 
-## Backtesting Methodology ⚖️
+#### 4️⃣ Volume Z-Score (252-day)
+\[
+Z_t = \frac{V_t - \mu_{252}}{\sigma_{252}}
+\]
 
-To ensure fairness and research integrity:
+Identifies abnormal participation and regime shifts.
 
-Same price series
+---
 
-Same execution timing
+### Design Constraints
+- All features are shifted by one period
+- No price-level leakage
+- No overlap with label construction
 
-Same transaction costs
+---
 
-Same position sizing
+## 📂 `label_generator.py`
 
-Same holding rules
+### Purpose
+Define economically meaningful supervision targets.
 
-The only difference:
+### Label Definition
 
-`Raw Strategy:       EMA Signal`
-`ML-Filtered:        EMA Signal × ML Filter`
+A trade entered at \( t+1 \) is successful if:
 
-## Evaluation Metrics
+\[
+\frac{P_{t+h+1} - P_{t+1}}{P_{t+1}} > c
+\]
 
-Classification Diagnostics
+Where:
+- \( h \): holding horizon
+- \( c \): transaction cost
 
-Train vs test accuracy
+### Conditional Labeling
 
-Probability distributions
+Labels are generated **only when the momentum signal is active**:
 
-Calibration curve
+\[
+Y_t =
+\begin{cases}
+1 & \text{if trade succeeds and } S_t = 1 \\
+\text{NaN} & \text{otherwise}
+\end{cases}
+\]
 
-Confidence stability over time
+This prevents training on irrelevant market periods.
 
-Trading Metrics
+---
 
-Sharpe ratio
+## 📂 `train_model.py`
 
-Trade frequency
+### Purpose
+Train a probabilistic classifier that estimates **trade success probability**.
 
-Cumulative returns
+---
 
-Drawdowns
+### Model Architecture
 
-Acceptance rate vs threshold
+A deliberately small multilayer perceptron (MLP):
 
-Performance is evaluated out-of-sample only.
+\[
+X_t \rightarrow \text{ReLU} \rightarrow \text{ReLU} \rightarrow \text{Dropout} \rightarrow \hat{p}_t
+\]
 
-### Visualization Philosophy 📊
+Output:
+\[
+\hat{p}_t = P(Y_t = 1 \mid X_t)
+\]
 
-The project uses both static and interactive plots, chosen intentionally:
+---
 
-#### Matplotlib (Static, Research-Grade)
+### Loss Function
 
-Cumulative return comparison
+Binary Cross-Entropy with Logits:
 
-Drawdown curves
+\[
+\mathcal{L} = -[y \log(\sigma(z)) + (1-y)\log(1-\sigma(z))]
+\]
 
-Calibration curves
+Chosen because:
+- Proper scoring rule
+- Penalizes overconfident errors
+- Suitable for threshold-based decision rules
 
-Distribution histograms
+---
 
-#### Plotly (Interactive, Exploratory)
+### Training Design
 
-Threshold × Trade Frequency × Sharpe (3D)
+- Time-based train/test split
+- Feature scaling fit on training data only
+- Early stopping on validation loss
+- No look-ahead bias
 
-ML confidence vs forward returns
+---
 
-PCA feature projections with confidence
+### Diagnostics Produced
 
-Threshold sensitivity surfaces
+- Train vs test accuracy
+- Probability distributions
+- Calibration curves
+- Probability time-series
 
-Interactive plots are used only where dimensionality or non-linearity matters.
+---
 
-### Key Findings (Representative)
+## 📂 `ml_filter.py`
 
-ML probabilities are stable and well-calibrated
+### Purpose
+Convert model probabilities into a **decision layer**.
 
-Classification accuracy is modest (expected)
+### Logic
 
-Trade frequency decreases meaningfully with ML filtering
+\[
+\text{FilteredSignal}_t = S_t \cdot \mathbb{1}(\hat{p}_t > \tau)
+\]
 
-Sharpe ratio improvements come primarily from risk reduction, not higher returns
+This decouples:
+- Prediction from capital allocation
+- Learning from execution
 
-In some regimes, Sharpe parity with lower drawdown is the dominant gain
+---
 
-This aligns with empirical trading literature:
+## 📂 `backtest_ml_strategy.py`
 
-Filtering bad trades is often more valuable than finding new ones.
+### Purpose
+Evaluate the ML-filtered strategy in the **same environment** as the baseline.
 
-Limitations & Research Extensions
+### Return Construction
 
-Fixed holding horizon
+Raw EMA:
+\[
+r_t = S_t \cdot \frac{P_t - P_{t-1}}{P_{t-1}}
+\]
 
-No walk-forward retraining
+ML-filtered:
+\[
+r_t^{ML} = S_t \cdot \mathbb{1}(\hat{p}_t > \tau) \cdot r_t
+\]
 
-No transaction cost stress testing
+---
 
-### Natural next steps:
+### Performance Metrics
 
-Regime-conditioned filters
+- Sharpe Ratio:
+\[
+\text{Sharpe} = \frac{\mu}{\sigma} \sqrt{252}
+\]
 
-Horizon-adaptive labeling
+- Drawdown:
+\[
+DD_t = \frac{E_t}{\max(E)} - 1
+\]
 
-Bayesian or ensemble filters
+---
 
-Walk-forward optimization
+### Interpretation Rule
 
-Multi-asset generalization
+If:
+- Sharpe ≈ unchanged
+- Drawdown ↓
+- Trade frequency ↓
 
-### Reproducibility
+Then ML improves **capital efficiency**, not raw predictability.
 
-Fixed random seeds
+---
 
-Deterministic splits
+## 📂 `figure_plotting.py`
 
-Explicit feature alignment
+### Purpose
+Visualize statistical and economic behavior.
 
-No hidden state or data leakage
+### Plotting Choices
 
-All results can be reproduced by running:
+**Matplotlib**
+- Cumulative returns
+- Drawdowns
+- Calibration curves
+- Research-grade static plots
 
-`python train_model.py`
-`python backtest_ml_strategy.py`
+**Plotly**
+- Threshold sensitivity analysis
+- 3D probability–return–frequency surfaces
+- Interactive regime diagnostics
+
+---
+
+## 5. Results Summary
+
+| Metric | Raw EMA | ML-Filtered EMA |
+|------|--------|----------------|
+| Trade Frequency | Higher | Lower |
+| Sharpe Ratio | Similar | Similar or slightly higher |
+| Drawdown | Larger | Smaller |
+| Return Variance | Higher | Lower |
+
+---
+
+## 6. Key Research Takeaways
+
+- Accuracy is a weak objective in trading
+- Probability calibration matters more than hit rate
+- ML is best used as a **filter**
+- Economic labels outperform directional labels
+
+---
+
+## 7. Extensions
+
+- Walk-forward retraining
+- Regime-aware models
+- Multi-horizon labeling
+- Portfolio-level ML filters
+
+---
+
+
