@@ -25,9 +25,9 @@ Every trade:
 
 ## Train-Validation-Test split
 
-Train - 2010-2017
-Validation - 2018-2020
-Test - 2021-2025
+Train - 2010-2019
+Validation - 2019-2022
+Test - 2022-2025
 
 ## Constraints:
 
